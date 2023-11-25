@@ -40,6 +40,13 @@ async function run() {
             res.send(result);
         });
 
+        //Add New Articles
+        app.post('/article', async (req, res) => {
+            const article = req.body;
+            const result = await articleCollection.insertOne(article);
+            res.send(result);
+        });
+
 
     } finally {
         // Ensures that the client will close when you finish/error
