@@ -81,6 +81,26 @@ async function run() {
             }
         });
 
+        //Getting single article details
+        app.get('/articles/:id', async (req, res) => {
+            try {
+                const articleId = req.params.id;
+
+                const result = await articleCollection.findOne({ _id: new ObjectId(articleId) });
+                res.send(result);
+
+                await articleCollection.updateOne(
+                    { _id: new ObjectId(articleId) },
+                    { $inc: { view: 1 } }
+                );
+
+            } catch (error) {
+                console.error('Error fetching article:', error);
+                res.status(500).send('Internal Server Error');
+            }
+        });
+
+
 
     } finally {
         // Ensures that the client will close when you finish/error
