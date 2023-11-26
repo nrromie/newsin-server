@@ -47,6 +47,40 @@ async function run() {
             res.send(result);
         });
 
+        //Getting and searching articles
+        app.get('/articles', async (req, res) => {
+            const page = parseInt(req.query.page) || 1;
+            const PAGE_SIZE = 5;
+            const skip = (page - 1) * PAGE_SIZE;
+            const searchTitle = req.query.title;
+
+            try {
+                let query = {};
+
+                if (searchTitle) {
+                    query = { title: { $regex: new RegExp(searchTitle, 'i') } };
+                }
+
+                const result = await articleCollection
+                    .find(query)
+                    .skip(skip)
+                    .limit(PAGE_SIZE)
+                    .toArray();
+
+                const totalArticlesCount = await articleCollection.countDocuments(query);
+
+                res.json({
+                    articles: result,
+                    articlesCount: totalArticlesCount,
+                    currentPage: page,
+                    totalPages: Math.ceil(totalArticlesCount / PAGE_SIZE),
+                });
+            } catch (error) {
+                console.error('Error fetching articles:', error);
+                res.status(500).json({ error: 'Internal Server Error' });
+            }
+        });
+
 
     } finally {
         // Ensures that the client will close when you finish/error
