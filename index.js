@@ -40,6 +40,12 @@ async function run() {
             res.send(result);
         });
 
+        //Getting Publishers
+        app.get('/publishers', async (req, res) => {
+            const result = await publisherCollection.find().toArray();
+            res.send(result);
+        });
+
         //Add New Articles
         app.post('/article', async (req, res) => {
             const article = req.body;
@@ -96,6 +102,17 @@ async function run() {
 
             } catch (error) {
                 console.error('Error fetching article:', error);
+                res.status(500).send('Internal Server Error');
+            }
+        });
+
+        //Getting Trending Articles
+        app.get('/trending', async (req, res) => {
+            try {
+                const result = await articleCollection.find().sort({ view: -1 }).limit(5).toArray();
+                res.json(result);
+            } catch (error) {
+                console.error('Error fetching trending articles:', error);
                 res.status(500).send('Internal Server Error');
             }
         });
