@@ -129,10 +129,45 @@ async function run() {
             res.send(result);
         });
 
+        //Getting all users
         app.get('/users', async (req, res) => {
             const users = await userCollection.find().toArray();
             res.send(users);
         })
+
+        //Getting users statistics
+        app.get('/userstats', async (req, res) => {
+            try {
+                const totalUsers = await userCollection.countDocuments();
+
+                const premiumUsers = await userCollection
+                    .aggregate([
+                        {
+                            $addFields: {
+                                isPremium: {
+                                    $cond: {
+                                        if: { $gte: ["$isPremium", new Date()] },
+                                        then: true,
+                                        else: false
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            $match: { isPremium: true }
+                        },
+                        {
+                            $count: "premiumUsers"
+                        }
+                    ])
+                    .next();
+
+                res.json({ totalUsers, premiumUsers: premiumUsers ? premiumUsers.premiumUsers : 0 });
+            } catch (error) {
+                console.error('Error fetching user stats:', error);
+                res.status(500).send('Internal Server Error');
+            }
+        });
 
 
 
