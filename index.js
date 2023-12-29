@@ -116,6 +116,8 @@ async function run() {
                 res.status(500).send('Internal Server Error');
             }
         });
+                
+
 
         //Adding User Info
         app.post('/users', async (req, res) => {
@@ -169,7 +171,41 @@ async function run() {
             }
         });
 
-
+        //Subscription
+        app.patch('/subscribe/:email/:plan', async (req, res) => {
+            const { email, plan } = req.params;
+            let expirationDate;
+            switch (plan) {
+                case 'Starter':
+                    expirationDate = new Date();
+                    expirationDate.setMinutes(expirationDate.getMinutes() + 1);
+                    break;
+                case 'Standard':
+                    expirationDate = new Date();
+                    expirationDate.setDate(expirationDate.getDate() + 5);
+                    break;
+                case 'Premium':
+                    expirationDate = new Date();
+                    expirationDate.setDate(expirationDate.getDate() + 10);
+                    break;
+                default:
+                    return res.status(400).json({ error: 'Invalid plan' });
+            }
+            try {
+                await userCollection.updateOne(
+                    { email },
+                    {
+                        $set: {
+                            isPremium: expirationDate,
+                        },
+                    }
+                );
+                res.json({ success: true, message: 'Subscription successful!' });
+            } catch (error) {
+                console.error('Error subscribing user:', error);
+                res.status(500).json({ error: 'Internal Server Error' });
+            }
+        });
 
 
     } finally {
