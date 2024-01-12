@@ -116,7 +116,18 @@ async function run() {
                 res.status(500).send('Internal Server Error');
             }
         });
-                
+
+
+        //Getting Premium Articles
+        app.get('/premium-articles', async (req, res) => {
+            try {
+                const premiumArticles = await articleCollection.find({ isPremium: true }).toArray();
+                res.json(premiumArticles);
+            } catch (error) {
+                console.error('Error fetching premium articles:', error);
+                res.status(500).json({ error: 'Internal Server Error' });
+            }
+        });
 
 
         //Adding User Info
@@ -136,6 +147,27 @@ async function run() {
             const users = await userCollection.find().toArray();
             res.send(users);
         })
+
+        //Getting user data
+        app.get('/user/:email', async (req, res) => {
+            const email = req.params.email;
+            const user = await userCollection.findOne({ email: email });
+
+            if (user && user.isPremium && user.isPremium < new Date()) {
+                user.isPremium = false;
+                res.send(user)
+            } else if (user && user.isPremium && user.isPremium > new Date()) {
+                const modifiedUser = {
+                    ...user,
+                    expires: user.isPremium,
+                    isPremium: true,
+                };
+
+                res.send(modifiedUser);
+            } else {
+                res.send(user);
+            }
+        });
 
         //Getting users statistics
         app.get('/userstats', async (req, res) => {
