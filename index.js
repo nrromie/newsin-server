@@ -109,7 +109,7 @@ async function run() {
         //Getting Trending Articles
         app.get('/trending', async (req, res) => {
             try {
-                const result = await articleCollection.find().sort({ view: -1 }).limit(5).toArray();
+                const result = await articleCollection.find().sort({ view: -1 }).limit(6).toArray();
                 res.json(result);
             } catch (error) {
                 console.error('Error fetching trending articles:', error);
@@ -129,6 +129,17 @@ async function run() {
             }
         });
 
+        //Getting My Articles
+        app.get('/myarticles/:email', async (req, res) => {
+            try {
+                const email = req.params.email;
+                const myArticles = await articleCollection.find({ writerEmail : email }).toArray();
+                res.json(myArticles);
+            } catch (error) {
+                console.error('Error fetching premium articles:', error);
+                res.status(500).json({ error: 'Internal Server Error' });
+            }
+        });
 
         //Adding User Info
         app.post('/users', async (req, res) => {
