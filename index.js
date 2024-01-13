@@ -133,7 +133,7 @@ async function run() {
         app.get('/myarticles/:email', async (req, res) => {
             try {
                 const email = req.params.email;
-                const myArticles = await articleCollection.find({ writerEmail : email }).toArray();
+                const myArticles = await articleCollection.find({ writerEmail: email }).toArray();
                 res.json(myArticles);
             } catch (error) {
                 console.error('Error fetching premium articles:', error);
@@ -246,6 +246,34 @@ async function run() {
                 res.json({ success: true, message: 'Subscription successful!' });
             } catch (error) {
                 console.error('Error subscribing user:', error);
+                res.status(500).json({ error: 'Internal Server Error' });
+            }
+        });
+
+        app.get('/publication-stats', async (req, res) => {
+            try {
+                const pipeline = [
+                    {
+                        $lookup: {
+                            from: 'articles', // The name of the articles collection
+                            localField: 'name', // Field from the publications collection
+                            foreignField: 'publisher', // Field from the articles collection
+                            as: 'articles',
+                        },
+                    },
+                    {
+                        $project: {
+                            _id: 0,
+                            publication: '$name',
+                            articleCount: { $size: '$articles' },
+                        },
+                    },
+                ];
+
+                const results = await publisherCollection.aggregate(pipeline).toArray();
+                res.json(results);
+            } catch (error) {
+                console.error('Error fetching publication stats:', error);
                 res.status(500).json({ error: 'Internal Server Error' });
             }
         });
