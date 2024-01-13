@@ -53,7 +53,7 @@ async function run() {
             res.send(result);
         });
 
-        //Getting and searching articles
+        // Getting and searching approved articles
         app.get('/articles', async (req, res) => {
             const page = parseInt(req.query.page) || 1;
             const PAGE_SIZE = 5;
@@ -61,14 +61,15 @@ async function run() {
             const searchTitle = req.query.title;
 
             try {
-                let query = {};
+                let query = { isApproved: true }; // Include condition for approved articles
 
                 if (searchTitle) {
-                    query = { title: { $regex: new RegExp(searchTitle, 'i') } };
+                    query.title = { $regex: new RegExp(searchTitle, 'i') };
                 }
 
                 const result = await articleCollection
                     .find(query)
+                    .sort({ _id: -1 })
                     .skip(skip)
                     .limit(PAGE_SIZE)
                     .toArray();
@@ -86,6 +87,35 @@ async function run() {
                 res.status(500).json({ error: 'Internal Server Error' });
             }
         });
+
+        // Getting all articles for admin
+        app.get('/adminallarticles', async (req, res) => {
+            const page = parseInt(req.query.page) || 1;
+            const PAGE_SIZE = 10;
+            const skip = (page - 1) * PAGE_SIZE;
+
+            try {
+                const result = await articleCollection
+                    .find({})
+                    .sort({ _id: -1 })
+                    .skip(skip)
+                    .limit(PAGE_SIZE)
+                    .toArray();
+
+                const totalArticlesCount = await articleCollection.countDocuments({});
+
+                res.json({
+                    articles: result,
+                    articlesCount: totalArticlesCount,
+                    currentPage: page,
+                    totalPages: Math.ceil(totalArticlesCount / PAGE_SIZE),
+                });
+            } catch (error) {
+                console.error('Error fetching articles:', error);
+                res.status(500).json({ error: 'Internal Server Error' });
+            }
+        });
+
 
         //Getting single article details
         app.get('/articles/:id', async (req, res) => {
@@ -140,6 +170,54 @@ async function run() {
                 res.status(500).json({ error: 'Internal Server Error' });
             }
         });
+
+
+        app.patch('/approve-article/:id', async (req, res) => {
+            const articleId = req.params.id;
+
+            try {
+                await articleCollection.updateOne(
+                    { _id: new ObjectId(articleId) },
+                    {
+                        $set: {
+
+                            isApproved: true,
+                        },
+                    }
+                );
+
+                res.json({ success: true, message: 'Article approved successfully' });
+            } catch (error) {
+                console.error('Error approving article:', error);
+                res.status(500).json({ error: 'Internal Server Error' });
+            }
+        });
+
+        // Toggle premium status
+        app.patch('/toggle-premium/:id', async (req, res) => {
+            const articleId = req.params.id;
+
+            try {
+                const article = await articleCollection.findOne({ _id: new ObjectId(articleId) });
+
+                if (!article) {
+                    return res.status(404).json({ error: 'Article not found' });
+                }
+
+                const updatedPremiumStatus = !article.isPremium;
+
+                await articleCollection.updateOne(
+                    { _id: new ObjectId(articleId) },
+                    { $set: { isPremium: updatedPremiumStatus } }
+                );
+
+                res.json({ success: true, message: 'Premium status toggled successfully' });
+            } catch (error) {
+                console.error('Error toggling premium status:', error);
+                res.status(500).json({ error: 'Internal Server Error' });
+            }
+        });
+
 
         //Adding User Info
         app.post('/users', async (req, res) => {
