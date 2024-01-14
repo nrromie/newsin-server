@@ -193,6 +193,30 @@ async function run() {
             }
         });
 
+        //Decline article
+        app.patch('/decline-article/:id', async (req, res) => {
+            const articleId = req.params.id;
+            const { declineMessage } = req.body;
+
+            try {
+                await articleCollection.updateOne(
+                    { _id: new ObjectId(articleId) },
+                    {
+                        $set: {
+                            isApproved: false,
+                            declineMessage: declineMessage,
+                        },
+                    }
+                );
+
+                res.json({ success: true, message: 'Article declined successfully' });
+            } catch (error) {
+                console.error('Error declining article:', error);
+                res.status(500).json({ error: 'Internal Server Error' });
+            }
+        });
+
+
         // Toggle premium status
         app.patch('/toggle-premium/:id', async (req, res) => {
             const articleId = req.params.id;
