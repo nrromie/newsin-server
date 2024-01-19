@@ -172,6 +172,30 @@ async function run() {
         });
 
 
+        // Getting articles statistics
+        app.get('/articlestats', async (req, res) => {
+            try {
+                const totalArticles = await articleCollection.countDocuments();
+
+                const premiumArticlesResult = await articleCollection.aggregate([
+                    {
+                        $match: { isPremium: true }
+                    },
+                    {
+                        $count: 'premiumArticlesCount'
+                    }
+                ]).next();
+
+                const premiumArticlesCount = premiumArticlesResult ? premiumArticlesResult.premiumArticlesCount : 0;
+
+                res.json({ totalArticles, premiumArticlesCount });
+            } catch (error) {
+                console.error('Error fetching Article stats:', error);
+                res.status(500).json({ error: 'Internal Server Error' });
+            }
+        });
+
+
         app.patch('/approve-article/:id', async (req, res) => {
             const articleId = req.params.id;
 
