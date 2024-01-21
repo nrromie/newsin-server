@@ -10,26 +10,16 @@ const port = process.env.PORT || 5000;
 // middleware
 app.use(cors({
     origin: [
-        'http://localhost:5173',
+        //"http://localhost:5173",
+        "https://newsin-6613e.web.app",
+        "https://newsin-6613e.firebaseapp.com"
     ],
-    credentials: true
+    credentials: true,
 }));
 app.use(express.json());
 app.use(cookieParser());
 
-const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.plm4jqn.mongodb.net/?retryWrites=true&w=majority`;
 
-
-// Create a MongoClient with a MongoClientOptions object to set the Stable API version
-const client = new MongoClient(uri, {
-    serverApi: {
-        version: ServerApiVersion.v1,
-        strict: true,
-        deprecationErrors: true,
-    }
-});
-
-// middlewares 
 const verifyToken = (req, res, next) => {
     const token = req?.cookies?.token;
     if (!token) {
@@ -43,6 +33,18 @@ const verifyToken = (req, res, next) => {
         next();
     })
 }
+
+const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.plm4jqn.mongodb.net/?retryWrites=true&w=majority`;
+
+
+// Create a MongoClient with a MongoClientOptions object to set the Stable API version
+const client = new MongoClient(uri, {
+    serverApi: {
+        version: ServerApiVersion.v1,
+        strict: true,
+        deprecationErrors: true,
+    }
+});
 
 async function run() {
     try {
@@ -214,6 +216,40 @@ async function run() {
             }
         });
 
+        // Delete Article
+        app.delete('/articles/:id', verifyToken, async (req, res) => {
+            try {
+                const id = new ObjectId(req.params.id);
+                const result = await articleCollection.deleteOne({ _id: id });
+                res.json({ success: true, message: 'Article deleted successfully' });
+            } catch (error) {
+                console.error('Error deleting article:', error);
+                res.status(500).json({ error: 'Internal Server Error' });
+            }
+        });
+
+        // Update Article
+        app.patch('/article/:id', verifyToken, async (req, res) => {
+            try {
+                const id = new ObjectId(req.params.id);
+                const updatedContent = req.body;
+                console.log(updatedContent)
+
+                const result = await articleCollection.updateOne(
+                    { _id: id },
+                    { $set: updatedContent }
+                );
+
+                if (result.modifiedCount === 1) {
+                    res.json({ success: true, message: 'Article updated successfully' });
+                } else {
+                    res.status(400).json({ error: 'No changes made to the article' });
+                }
+            } catch (error) {
+                console.error('Error updating article:', error);
+                res.status(500).json({ error: 'Internal Server Error' });
+            }
+        });
 
         // Getting articles statistics
         app.get('/articlestats', async (req, res) => {
