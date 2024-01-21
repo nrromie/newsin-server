@@ -1,13 +1,21 @@
 const express = require('express');
 const cors = require('cors');
+const jwt = require('jsonwebtoken');
+const cookieParser = require('cookie-parser');
 const app = express();
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 require('dotenv').config();
 const port = process.env.PORT || 5000;
 
-// Midlewares
-app.use(cors());
+// middleware
+app.use(cors({
+    origin: [
+        'http://localhost:5173',
+    ],
+    credentials: true
+}));
 app.use(express.json());
+app.use(cookieParser());
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.plm4jqn.mongodb.net/?retryWrites=true&w=majority`;
 
@@ -21,6 +29,21 @@ const client = new MongoClient(uri, {
     }
 });
 
+// middlewares 
+const verifyToken = (req, res, next) => {
+    const token = req?.cookies?.token;
+    if (!token) {
+        return res.status(401).send("unauthorized access")
+    }
+    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (error, decoded) => {
+        if (error) {
+            return res.status(401).send("unauthorized access")
+        }
+        req.user = decoded
+        next();
+    })
+}
+
 async function run() {
     try {
 
@@ -28,8 +51,28 @@ async function run() {
         const publisherCollection = client.db('newsinDB').collection('publishers')
         const articleCollection = client.db('newsinDB').collection('articles')
 
+        // auth related api
+        app.post('/jwt', async (req, res) => {
+            const user = req.body;
+            const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' });
+
+            res.cookie('token', token, {
+                httpOnly: true,
+                secure: true,
+                sameSite: 'none'
+            })
+                .send({ success: true });
+        })
+
+        app.post('/logout', async (req, res) => {
+            const user = req.body;
+            res.clearCookie('token', { maxAge: 0 }).send({ success: true })
+        })
+
+
+        //Other Apis
         //Add New Publishers
-        app.post('/newpublisher', async (req, res) => {
+        app.post('/newpublisher', verifyToken, async (req, res) => {
             const publisher = req.body;
             const query = { name: publisher.name }
             const existsPublisher = await publisherCollection.findOne(query);
@@ -47,7 +90,7 @@ async function run() {
         });
 
         //Add New Articles
-        app.post('/article', async (req, res) => {
+        app.post('/article', verifyToken, async (req, res) => {
             const article = req.body;
             const result = await articleCollection.insertOne(article);
             res.send(result);
@@ -89,7 +132,7 @@ async function run() {
         });
 
         // Getting all articles for admin
-        app.get('/adminallarticles', async (req, res) => {
+        app.get('/adminallarticles', verifyToken, async (req, res) => {
             const page = parseInt(req.query.page) || 1;
             const PAGE_SIZE = 10;
             const skip = (page - 1) * PAGE_SIZE;
@@ -118,7 +161,7 @@ async function run() {
 
 
         //Getting single article details
-        app.get('/articles/:id', async (req, res) => {
+        app.get('/articles/:id', verifyToken, async (req, res) => {
             try {
                 const articleId = req.params.id;
 
@@ -149,7 +192,7 @@ async function run() {
 
 
         //Getting Premium Articles
-        app.get('/premium-articles', async (req, res) => {
+        app.get('/premium-articles', verifyToken, async (req, res) => {
             try {
                 const premiumArticles = await articleCollection.find({ isPremium: true }).toArray();
                 res.json(premiumArticles);
@@ -160,7 +203,7 @@ async function run() {
         });
 
         //Getting My Articles
-        app.get('/myarticles/:email', async (req, res) => {
+        app.get('/myarticles/:email', verifyToken, async (req, res) => {
             try {
                 const email = req.params.email;
                 const myArticles = await articleCollection.find({ writerEmail: email }).toArray();
@@ -196,7 +239,7 @@ async function run() {
         });
 
 
-        app.patch('/approve-article/:id', async (req, res) => {
+        app.patch('/approve-article/:id', verifyToken, async (req, res) => {
             const articleId = req.params.id;
 
             try {
@@ -218,7 +261,7 @@ async function run() {
         });
 
         //Decline article
-        app.patch('/decline-article/:id', async (req, res) => {
+        app.patch('/decline-article/:id', verifyToken, async (req, res) => {
             const articleId = req.params.id;
             const { declineMessage } = req.body;
 
@@ -242,7 +285,7 @@ async function run() {
 
 
         // Toggle premium status
-        app.patch('/toggle-premium/:id', async (req, res) => {
+        app.patch('/toggle-premium/:id', verifyToken, async (req, res) => {
             const articleId = req.params.id;
 
             try {
@@ -280,13 +323,13 @@ async function run() {
         });
 
         //Getting all users
-        app.get('/users', async (req, res) => {
+        app.get('/users', verifyToken, async (req, res) => {
             const users = await userCollection.find().toArray();
             res.send(users);
         })
 
         //Getting user data
-        app.get('/user/:email', async (req, res) => {
+        app.get('/user/:email', verifyToken, async (req, res) => {
             const email = req.params.email;
             const user = await userCollection.findOne({ email: email });
 
@@ -341,7 +384,7 @@ async function run() {
         });
 
         //Subscription
-        app.patch('/subscribe/:email/:plan', async (req, res) => {
+        app.patch('/subscribe/:email/:plan', verifyToken, async (req, res) => {
             const { email, plan } = req.params;
             let expirationDate;
             switch (plan) {
